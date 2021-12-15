@@ -7,7 +7,6 @@ import regex as re
 import matplotlib.pyplot as plt
 from requests.api import get
 import numpy as np
-import altair as alt
 import pandas as pd
 
 
