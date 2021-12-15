@@ -11,18 +11,17 @@ import altair as alt
 import pandas as pd
 
 
-def get_nba_data(): 
+def get_nba_data(page): 
 
     dict_data = {}
     dict_list = []
-    base_url = "https://www.balldontlie.io/api/v1/games?seasons[]=2018&per_page=100&page={}"
+    base_url = "https://www.balldontlie.io/api/v1/games?seasons[]=2018&per_page=25&page={}"
 
-    for i in range(1,15):
-        request_url = base_url.format(i)
-        r = requests.get(request_url)
-        data = r.text
-        dict_data = json.loads(data)
-        dict_list.append(dict_data)
+    request_url = base_url.format(page)
+    r = requests.get(request_url)
+    data = r.text
+    dict_data = json.loads(data)
+    dict_list.append(dict_data)
 
     conn = sqlite3.connect('team_database.db')
     c = conn.cursor()
@@ -96,6 +95,7 @@ def get_pop_data():
     #create a second table in the team_database.db file called Populations to store the population data of each team
     conn = sqlite3.connect('team_database.db')
     c = conn.cursor()
+    c.execute("DROP TABLE IF EXISTS Populations")
     c.execute("CREATE TABLE IF NOT EXISTS Populations (team text, population integer)")
     conn.commit()
     for key in team_dict:
@@ -113,13 +113,15 @@ def barchart_population_size(pop_data):
     points_list = []
 
     for key in sorted_points:
-        points_list.append(sorted_points[key])
+        points_list.append(sorted_points[key] * 1000)
     points_mean = sum(points_list)/len(points_list)
 
     # make the first bar blue and the second one yellow
     plt.bar(pop_data.keys(), pop_data.values(), color='blue')
     plt.bar(pop_data.keys(), points_list, color='yellow')
-
+    # make the bars side by side
+    plt.legend(['Population', 'Points'])
+    
 
     plt.xticks(rotation=90)
     plt.xlabel("NBA Teams")
@@ -171,16 +173,49 @@ def line_graph(pop_data):
     plt.title("Population Size of NBA Teams compared to NBA Team Points")
     plt.show()
 
+# find the mean of the points scored by each team and calculate how far from the mean each team is and store that data in a dictionary
+def find_mean_difference(pop_data):
+    points = read_data_from_db()
+    sorted_points = dict(sorted(points.items(), key=lambda item: item[0]))
+    points_list = []
+
+    for key in sorted_points:
+        points_list.append(sorted_points[key])
+
+    points_mean = sum(points_list)/len(points_list)
+    mean_difference = {}
+    for key in pop_data:
+        mean_difference[key] = abs(points_mean - pop_data[key])
+
+    return mean_difference
+# create a barchart for the mean differences between the points and the population size
+def barchart_mean_difference(mean_difference):
+    sorted_mean_difference = dict(sorted(mean_difference.items(), key=lambda item: item[1]))
+    mean_difference_list = []
+
+    for key in sorted_mean_difference:
+        mean_difference_list.append(sorted_mean_difference[key])
+
+    plt.bar(mean_difference.keys(), mean_difference.values(), color='blue')
+    plt.xticks(rotation=90)
+    plt.xlabel("NBA Teams")
+    plt.ylabel("Mean Difference")
+    plt.title("Mean Difference between NBA Team Points and Population Size")
+    plt.show()
+
 def main():
-    # test = read_data_from_db()
-    # db = get_nba_data()
+    # db = get_nba_data(8)
+    # once you get up to 4 runs, calculate team totals (usually needs more to render graphs)
+    test = read_data_from_db()
+    # get population sizes from web
     pops = get_pop_data()
     sorted_pops = dict(sorted(pops.items(), key=lambda item: item[0]))
-    
-    barchart_population_size(sorted_pops)
-    scatter_points(sorted_pops)
-    pie_chart(sorted_pops)
-    line_graph(sorted_pops)
 
+    # barchart_population_size(sorted_pops)
+    # scatter_points(sorted_pops)
+    # pie_chart(sorted_pops)
+    # line_graph(sorted_pops)
+    mean = find_mean_difference(get_pop_data())
+    barchart_mean_difference(mean)
 if __name__ == "__main__":
     main()
