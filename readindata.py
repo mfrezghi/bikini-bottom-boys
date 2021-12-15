@@ -44,20 +44,11 @@ def read_data_from_db():
     data = c.fetchall()
     conn.close()
     team_dict = {}
-    conn = sqlite3.connect('team_points.db')
-    c = conn.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS team_points (home_team text, home_team_points integer)")
-    conn.commit()
     for i in data:
         if i[0] not in team_dict:
             team_dict[i[0]] = i[1]
         else:
             team_dict[i[0]] += i[1]
-    for item in team_dict:
-        # transfer the items in the dictionary to the database
-        c.execute("INSERT INTO team_points (home_team,home_team_points) VALUES ('{}', '{}')".format(item, team_dict[item]))
-        conn.commit()
-    conn.close()
     return team_dict
 
 def get_pop_data():
@@ -102,8 +93,20 @@ def get_pop_data():
         team_dict[key] = int(team_dict[key].replace(',', ''))
         # if there is a slash in the team name, split the team name at the slash and add the second half to the dictionary with the same key value
     
+    #create a second table in the team_database.db file called Populations to store the population data of each team
+    conn = sqlite3.connect('team_database.db')
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS Populations (team text, population integer)")
+    conn.commit()
+    for key in team_dict:
+        c.execute("INSERT INTO Populations VALUES (?, ?)", (key, team_dict[key]))
+    conn.commit()
+    conn.close()
+    
+
     return team_dict
 
+#barchart of the population size of each team and the number of points they have scored
 def barchart_population_size(pop_data):
     points = read_data_from_db()
     sorted_points = dict(sorted(points.items(), key=lambda item: item[0]))
@@ -111,6 +114,7 @@ def barchart_population_size(pop_data):
 
     for key in sorted_points:
         points_list.append(sorted_points[key])
+    points_mean = sum(points_list)/len(points_list)
 
     # make the first bar blue and the second one yellow
     plt.bar(pop_data.keys(), pop_data.values(), color='blue')
@@ -125,8 +129,8 @@ def barchart_population_size(pop_data):
     plt.title("Population Size of NBA Teams compared to NBA Team Points")
     plt.show()
 
-# use seaborn library to create a visualization of the population size of the NBA teams compared to the number of points they have scored
-def barchart_points(pop_data):
+#scatter plot of the population size of each team and the number of points they have scored
+def scatter_points(pop_data):
     points = read_data_from_db()
     sorted_points = dict(sorted(points.items(), key=lambda item: item[0]))
     points_list = []
@@ -134,24 +138,49 @@ def barchart_points(pop_data):
     for key in sorted_points:
         points_list.append(sorted_points[key])
 
-    chart = alt.Chart(points_list).mark_bar().encode(
-        x=alt.X('home_team:O', axis=alt.Axis(title='NBA Teams')),
-        y=alt.Y('home_team_points:Q', axis=alt.Axis(title='Points Scored')),
-        color=alt.Color('home_team:N', legend=alt.Legend(title='NBA Teams'))
-    ).properties(
-        width=500,
-        height=500
-    ).interactive()
+    plt.scatter(pop_data.values(), points_list, color='blue')
+    plt.xlabel("Population Size (Millions)")
+    plt.ylabel("NBA Team Points")
+    plt.title("Population Size of NBA Teams compared to NBA Team Points")
+    plt.show()
 
-    chart.show()
+#pie chart of what percentage of the points are scored by each team
+def pie_chart(pop_data):
+    points = read_data_from_db()
+    sorted_points = dict(sorted(points.items(), key=lambda item: item[0]))
+    points_list = []
+
+    for key in sorted_points:
+        points_list.append(sorted_points[key])
+
+    plt.pie(points_list, labels=pop_data.keys(), autopct='%1.1f%%')
+    plt.title("NBA Team Points make up")
+    plt.show()
+
+def line_graph(pop_data):
+    points = read_data_from_db()
+    sorted_points = dict(sorted(points.items(), key=lambda item: item[0]))
+    points_list = []
+
+    for key in sorted_points:
+        points_list.append(sorted_points[key])
+
+    plt.plot(pop_data.values(), points_list, color='blue')
+    plt.xlabel("Population Size (Millions)")
+    plt.ylabel("NBA Team Points")
+    plt.title("Population Size of NBA Teams compared to NBA Team Points")
+    plt.show()
 
 def main():
     # test = read_data_from_db()
+    # db = get_nba_data()
     pops = get_pop_data()
     sorted_pops = dict(sorted(pops.items(), key=lambda item: item[0]))
     
-    #barchart_population_size(sorted_pops)
-    barchart_points(sorted_pops)
+    barchart_population_size(sorted_pops)
+    scatter_points(sorted_pops)
+    pie_chart(sorted_pops)
+    line_graph(sorted_pops)
 
 if __name__ == "__main__":
     main()
